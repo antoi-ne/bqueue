@@ -37,5 +37,3 @@ func TestNewQueue(t *testing.T) {
 		t.Fatal("unexpected nil for queue")
 	}
 }
-
-func
