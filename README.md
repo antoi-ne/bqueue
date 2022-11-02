@@ -14,6 +14,7 @@ package main
 
 import (
 	"log"
+	"fmt"
 
 	"pkg.coulon.dev/bqueue"
 )
@@ -24,7 +25,8 @@ func main() {
 
 	q.Push([]byte("Hello World"))
 
-	qdata, _ := q.Pop()
+	d, _ := q.Pop()
+	fmt.Printf("data: %s\n", d)
 }
 ```
 
