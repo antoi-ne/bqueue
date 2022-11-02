@@ -16,12 +16,6 @@ var (
 	defaultQueueBucket = []byte("queue:default")
 )
 
-func itob(i uint64) []byte {
-	b := make([]byte, 8)
-	binary.BigEndian.PutUint64(b, i)
-	return b
-}
-
 func New(path string) (q *Queue, err error) {
 	q = new(Queue)
 
@@ -30,6 +24,7 @@ func New(path string) (q *Queue, err error) {
 		return nil, err
 	}
 
+	q.mutex.Lock()
 	q.db.Update(func(tx *bbolt.Tx) error {
 		_, err := tx.CreateBucketIfNotExists(defaultQueueBucket)
 		if err != nil {
@@ -38,6 +33,7 @@ func New(path string) (q *Queue, err error) {
 
 		return nil
 	})
+	q.mutex.Unlock()
 	if err != nil {
 		return nil, err
 	}
@@ -88,4 +84,10 @@ func (q *Queue) Pop() (payload []byte, err error) {
 	q.mutex.Unlock()
 
 	return
+}
+
+func itob(i uint64) []byte {
+	b := make([]byte, 8)
+	binary.BigEndian.PutUint64(b, i)
+	return b
 }
