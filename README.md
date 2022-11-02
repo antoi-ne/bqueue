@@ -1,5 +1,6 @@
 # bqueue
 [![Go Reference](https://pkg.go.dev/badge/pkg.coulon.dev/bqueue.svg)](https://pkg.go.dev/pkg.coulon.dev/bqueue)
+
 Persistent embedded FIFO queue implementation built on boltDB
 
 ## installation
