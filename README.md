@@ -1,5 +1,5 @@
 # bqueue
-Persistent FIFO queue implementation built on boltDB
+Persistent embedded FIFO queue implementation built on boltDB
 
 ## installation
 
@@ -13,26 +13,41 @@ $ go get pkg.coulon.dev/bqueue
 package main
 
 import (
-	"log"
 	"fmt"
+	"log"
 
 	"pkg.coulon.dev/bqueue"
 )
 
 func main() {
-	q, _ := bqueue.New("queue.db")
-	defer q.Close()
+	s, err := bqueue.NewStore("queue.db", 0600, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer s.Close()
 
-	q.Push([]byte("Hello World"))
+	q, err := s.NewQueue([]byte("default"))
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	d, _ := q.Pop()
-	fmt.Printf("data: %s\n", d)
+	err = q.Push([]byte("Hello World!"))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	m, err := q.Pop()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("message: %s\n", m)
 }
 ```
 
 ## Roadmap
 
 * [x] Persistent FIFO queue
-* [ ] Multiple queues on the same db
+* [x] Multiple queues on the same db
 * [x] Thread-safety
 * [ ] Adding metadata to payloads

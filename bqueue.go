@@ -2,38 +2,26 @@ package bqueue
 
 import (
 	"encoding/binary"
+	"os"
 	"sync"
 
 	"go.etcd.io/bbolt"
 )
 
-type Queue struct {
-	db    *bbolt.DB
-	mutex sync.Mutex
+type Store struct {
+	db *bbolt.DB
+	mu sync.Mutex
 }
 
-var (
-	defaultQueueBucket = []byte("queue:default")
-)
+type Queue struct {
+	store *Store
+	name  []byte
+}
 
-func New(path string) (q *Queue, err error) {
-	q = new(Queue)
+func NewStore(path string, mode os.FileMode, opts *bbolt.Options) (s *Store, err error) {
+	s = new(Store)
 
-	q.db, err = bbolt.Open(path, 0600, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	q.mutex.Lock()
-	q.db.Update(func(tx *bbolt.Tx) error {
-		_, err := tx.CreateBucketIfNotExists(defaultQueueBucket)
-		if err != nil {
-			return err
-		}
-
-		return nil
-	})
-	q.mutex.Unlock()
+	s.db, err = bbolt.Open(path, mode, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -41,35 +29,61 @@ func New(path string) (q *Queue, err error) {
 	return
 }
 
-func (q *Queue) Close() error {
-	return q.db.Close()
+func (s *Store) Close() (err error) {
+	s.mu.Lock()
+	err = s.db.Close()
+	s.mu.Unlock()
+
+	return
 }
 
-func (q *Queue) Push(payload []byte) (err error) {
-	q.mutex.Lock()
-	err = q.db.Update(func(tx *bbolt.Tx) error {
-		b := tx.Bucket(defaultQueueBucket)
+func (s *Store) NewQueue(name []byte) (q *Queue, err error) {
+	q = new(Queue)
+	q.name = name
+	q.store = s
+
+	q.store.mu.Lock()
+	err = q.store.db.Update(func(tx *bbolt.Tx) error {
+		_, err := tx.CreateBucketIfNotExists(q.name)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+	q.store.mu.Unlock()
+	if err != nil {
+		return nil, err
+	}
+
+	return
+}
+
+func (q *Queue) Push(message []byte) (err error) {
+	q.store.mu.Lock()
+	err = q.store.db.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(q.name)
 
 		i, err := b.NextSequence()
 		if err != nil {
 			return err
 		}
 
-		if err = b.Put(itob(i), payload); err != nil {
+		if err = b.Put(itob(i), message); err != nil {
 			return err
 		}
 
 		return nil
 	})
-	q.mutex.Unlock()
+	q.store.mu.Unlock()
 
 	return
 }
 
-func (q *Queue) Pop() (payload []byte, err error) {
-	q.mutex.Lock()
-	err = q.db.Update(func(tx *bbolt.Tx) error {
-		b := tx.Bucket(defaultQueueBucket)
+func (q *Queue) Pop() (message []byte, err error) {
+	q.store.mu.Lock()
+	err = q.store.db.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(q.name)
 
 		k, v := b.Cursor().First()
 
@@ -77,11 +91,11 @@ func (q *Queue) Pop() (payload []byte, err error) {
 			return err
 		}
 
-		payload = v
+		message = v
 
 		return nil
 	})
-	q.mutex.Unlock()
+	q.store.mu.Unlock()
 
 	return
 }
