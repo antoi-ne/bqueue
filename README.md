@@ -34,5 +34,5 @@ func main() {
 
 * [x] Persistent FIFO queue
 * [ ] Multiple queues on the same db
-* [ ] Thread-safety
+* [x] Thread-safety
 * [ ] Adding metadata to payloads

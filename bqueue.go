@@ -2,12 +2,14 @@ package bqueue
 
 import (
 	"encoding/binary"
+	"sync"
 
 	"go.etcd.io/bbolt"
 )
 
 type Queue struct {
-	db *bbolt.DB
+	db    *bbolt.DB
+	mutex sync.Mutex
 }
 
 var (
@@ -47,8 +49,9 @@ func (q *Queue) Close() error {
 	return q.db.Close()
 }
 
-func (q *Queue) Push(payload []byte) error {
-	return q.db.Update(func(tx *bbolt.Tx) error {
+func (q *Queue) Push(payload []byte) (err error) {
+	q.mutex.Lock()
+	err = q.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(defaultQueueBucket)
 
 		i, err := b.NextSequence()
@@ -62,9 +65,13 @@ func (q *Queue) Push(payload []byte) error {
 
 		return nil
 	})
+	q.mutex.Unlock()
+
+	return
 }
 
 func (q *Queue) Pop() (payload []byte, err error) {
+	q.mutex.Lock()
 	err = q.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(defaultQueueBucket)
 
@@ -78,6 +85,7 @@ func (q *Queue) Pop() (payload []byte, err error) {
 
 		return nil
 	})
+	q.mutex.Unlock()
 
 	return
 }
