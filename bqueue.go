@@ -9,8 +9,8 @@ import (
 )
 
 type Store struct {
-	db *bbolt.DB
-	mu sync.Mutex
+	db    *bbolt.DB
+	mutex sync.Mutex
 }
 
 type Queue struct {
@@ -18,7 +18,7 @@ type Queue struct {
 	name  []byte
 }
 
-func NewStore(path string, mode os.FileMode, opts *bbolt.Options) (s *Store, err error) {
+func Open(path string, mode os.FileMode, opts *bbolt.Options) (s *Store, err error) {
 	s = new(Store)
 
 	s.db, err = bbolt.Open(path, mode, opts)
@@ -30,9 +30,9 @@ func NewStore(path string, mode os.FileMode, opts *bbolt.Options) (s *Store, err
 }
 
 func (s *Store) Close() (err error) {
-	s.mu.Lock()
+	s.mutex.Lock()
 	err = s.db.Close()
-	s.mu.Unlock()
+	s.mutex.Unlock()
 
 	return
 }
@@ -42,25 +42,27 @@ func (s *Store) NewQueue(name []byte) (q *Queue, err error) {
 	q.name = name
 	q.store = s
 
-	q.store.mu.Lock()
-	err = q.store.db.Update(func(tx *bbolt.Tx) error {
+	q.store.mutex.Lock()
+	defer q.store.mutex.Unlock()
+
+	if err = q.store.db.Update(func(tx *bbolt.Tx) error {
 		_, err := tx.CreateBucketIfNotExists(q.name)
 		if err != nil {
 			return err
 		}
 
 		return nil
-	})
-	q.store.mu.Unlock()
-	if err != nil {
+	}); err != nil {
 		return nil, err
 	}
 
 	return
 }
 
-func (q *Queue) Push(message []byte) (err error) {
-	q.store.mu.Lock()
+func (q *Queue) Enqueue(message []byte) (err error) {
+	q.store.mutex.Lock()
+	defer q.store.mutex.Unlock()
+
 	err = q.store.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(q.name)
 
@@ -75,13 +77,14 @@ func (q *Queue) Push(message []byte) (err error) {
 
 		return nil
 	})
-	q.store.mu.Unlock()
 
 	return
 }
 
-func (q *Queue) Pop() (message []byte, err error) {
-	q.store.mu.Lock()
+func (q *Queue) Dequeue() (message []byte, err error) {
+	q.store.mutex.Lock()
+	defer q.store.mutex.Unlock()
+
 	err = q.store.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(q.name)
 
@@ -95,7 +98,6 @@ func (q *Queue) Pop() (message []byte, err error) {
 
 		return nil
 	})
-	q.store.mu.Unlock()
 
 	return
 }
