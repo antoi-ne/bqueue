@@ -22,7 +22,7 @@ import (
 )
 
 func main() {
-	s, err := bqueue.NewStore("queue.db", 0600, nil)
+	s, err := bqueue.Open("queue.db", 0600, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -33,12 +33,12 @@ func main() {
 		log.Fatal(err)
 	}
 
-	err = q.Push([]byte("Hello World!"))
+	err = q.Enqueue([]byte("Hello World!"))
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	m, err := q.Pop()
+	m, err := q.Deqeue()
 	if err != nil {
 		log.Fatal(err)
 	}
